@@ -3,11 +3,6 @@
 //  STEP 1: FIREBASE CONFIGURATION
 // ===================================
 //
-// WARNING: The keys below are exposed. Please generate new ones in your Firebase console.
-alert("✅ SUCCESS: The NEWEST app.js file is running!");
-
-// ... the rest of your firebaseConfig and code goes below
-
 const firebaseConfig = {
     apiKey: "AIzaSyDIXwI85CH-uXrsPmXTCsX2cEzKPtPxcP8",
     authDomain: "employeeattendanceapp-387e2.firebaseapp.com",
@@ -27,23 +22,20 @@ const db = firebase.firestore();
 //  STEP 2: ELEMENT REFERENCES & CONSTANTS
 // ========================================
 //
-// Screens
+// Screens & Cards
 const authScreen = document.getElementById('auth-screen');
 const adminDashboard = document.getElementById('admin-dashboard');
 const employeeDashboard = document.getElementById('employee-dashboard');
+const attendanceListCard = document.getElementById('attendance-list-card');
 
-// Auth View Toggle
+// Auth View Toggle & Forms
 const showLoginLink = document.getElementById('show-login');
 const showSignupLink = document.getElementById('show-signup');
 const loginView = document.getElementById('login-view');
 const signupView = document.getElementById('signup-view');
-
-// Login Form
 const loginEmail = document.getElementById('login-email');
 const loginPassword = document.getElementById('login-password');
 const loginBtn = document.getElementById('login-btn');
-
-// Signup Form
 const signupEmail = document.getElementById('signup-email');
 const signupPassword = document.getElementById('signup-password');
 const signupBtn = document.getElementById('signup-btn');
@@ -61,11 +53,13 @@ const fpStatus = document.getElementById('fp-status');
 const markAttendanceBtn = document.getElementById('mark-attendance-btn');
 const attendanceStatus = document.getElementById('attendance-status');
 const logoutBtnEmployee = document.getElementById('logout-btn-employee');
+const attendanceList = document.getElementById('attendance-list');
 
 // Constants
 const browser = window.SimpleWebAuthnBrowser;
-const ADMIN_EMAIL = "admin@company.com"; // Change this to your admin email
-const ALLOWED_RADIUS_METERS = 100;
+const ADMIN_EMAIL = "admin@company.com";
+// LOCATION FIX: Increased radius to 250 meters for better accuracy indoors.
+const ALLOWED_RADIUS_METERS = 250;
 
 //
 // ========================================
@@ -73,42 +67,15 @@ const ALLOWED_RADIUS_METERS = 100;
 // ========================================
 //
 function showScreen(screenElement) {
-    authScreen.classList.remove('active');
-    adminDashboard.classList.remove('active');
-    employeeDashboard.classList.remove('active');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     screenElement.classList.add('active');
 }
 
-showSignupLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    loginView.style.display = 'none';
-    signupView.style.display = 'block';
-});
+showSignupLink.addEventListener('click', (e) => { e.preventDefault(); loginView.style.display = 'none'; signupView.style.display = 'block'; });
+showLoginLink.addEventListener('click', (e) => { e.preventDefault(); signupView.style.display = 'none'; loginView.style.display = 'block'; });
 
-showLoginLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    signupView.style.display = 'none';
-    loginView.style.display = 'block';
-});
-
-signupBtn.addEventListener('click', () => {
-    const email = signupEmail.value;
-    const password = signupPassword.value;
-    auth.createUserWithEmailAndPassword(email, password)
-        .then(userCredential => {
-            console.log('User signed up:', userCredential.user);
-            alert('Signup successful! Please log in.');
-        })
-        .catch(error => alert(error.message));
-});
-
-loginBtn.addEventListener('click', () => {
-    const email = loginEmail.value;
-    const password = loginPassword.value;
-    auth.signInWithEmailAndPassword(email, password)
-        .catch(error => alert(error.message));
-});
-
+signupBtn.addEventListener('click', () => { auth.createUserWithEmailAndPassword(signupEmail.value, signupPassword.value).then(() => alert('Signup successful! Please log in.')).catch(error => alert(error.message)); });
+loginBtn.addEventListener('click', () => { auth.signInWithEmailAndPassword(loginEmail.value, loginPassword.value).catch(error => alert(error.message)); });
 logoutBtnAdmin.addEventListener('click', () => auth.signOut());
 logoutBtnEmployee.addEventListener('click', () => auth.signOut());
 
@@ -121,6 +88,8 @@ auth.onAuthStateChanged(user => {
             showScreen(employeeDashboard);
             employeeEmailSpan.textContent = user.email;
             checkFingerprintRegistration(user.uid);
+            // NEW: Start listening for attendance updates
+            listenForAttendance();
         }
     } else {
         showScreen(authScreen);
@@ -135,17 +104,8 @@ auth.onAuthStateChanged(user => {
 saveLocationBtn.addEventListener('click', () => {
     const lat = parseFloat(companyLatInput.value);
     const lon = parseFloat(companyLonInput.value);
-
-    if (isNaN(lat) || isNaN(lon)) {
-        return alert('Please enter valid coordinates.');
-    }
-
-    db.collection('company').doc('location').set({
-            latitude: lat,
-            longitude: lon
-        })
-        .then(() => alert('Location saved successfully!'))
-        .catch(error => alert('Error saving location: ' + error.message));
+    if (isNaN(lat) || isNaN(lon)) return alert('Please enter valid coordinates.');
+    db.collection('company').doc('location').set({ latitude: lat, longitude: lon }).then(() => alert('Location saved!')).catch(e => alert(e.message));
 });
 
 async function loadCompanyLocation() {
@@ -168,61 +128,33 @@ function bufferToBase64URL(buffer) {
 
 //
 // ========================================
-//  STEP 6: EMPLOYEE FINGERPRINT (WEBAUTHN) LOGIC
+//  STEP 6: EMPLOYEE PASSKEY (WEBAUTHN) LOGIC
 // ========================================
 //
 registerFpBtn.addEventListener('click', async () => {
     const user = auth.currentUser;
     if (!user) return;
-
-    // The Relying Party ID (rpId) must be a hostname, not an IP address.
     const rpId = window.location.hostname === '127.0.0.1' ? 'localhost' : window.location.hostname;
-
-    const challengeBuffer = new Uint8Array(32).map(() => Math.floor(Math.random() * 256));
+    const challengeBuffer = crypto.getRandomValues(new Uint8Array(32));
     const challenge = bufferToBase64URL(challengeBuffer);
-
     const registrationOptions = {
-        rp: {
-            name: 'Employee Attendance App',
-            id: rpId
-        },
-        user: {
-            id: bufferToBase64URL(new TextEncoder().encode(user.uid)),
-            name: user.email,
-            displayName: user.email
-        },
+        rp: { name: 'Attendance App', id: rpId },
+        user: { id: bufferToBase64URL(new TextEncoder().encode(user.uid)), name: user.email, displayName: user.email },
         challenge,
-        pubKeyCredParams: [{
-            alg: -7,
-            type: 'public-key'
-        }, {
-            alg: -257,
-            type: 'public-key'
-        }, ],
-        authenticatorSelection: {
-            userVerification: 'required'
-        },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
+        authenticatorSelection: { userVerification: 'required' },
         timeout: 60000,
         attestation: 'direct'
     };
-
     try {
         const registrationCredential = await browser.startRegistration(registrationOptions);
-
-        await db.collection('users').doc(user.uid).set({
-            fingerprintCredential: {
-                id: registrationCredential.id,
-            }
-        }, {
-            merge: true
-        });
-
-        fpStatus.textContent = 'Fingerprint registered successfully!';
+        await db.collection('users').doc(user.uid).set({ fingerprintCredential: { id: registrationCredential.id } }, { merge: true });
+        fpStatus.textContent = 'Passkey registered successfully!';
         fpStatus.className = 'status-message success';
         registerFpBtn.disabled = true;
     } catch (error) {
         console.error(error);
-        fpStatus.textContent = 'Registration failed. Check console for errors.';
+        fpStatus.textContent = 'Registration failed. Check console.';
         fpStatus.className = 'status-message error';
     }
 });
@@ -230,11 +162,11 @@ registerFpBtn.addEventListener('click', async () => {
 async function checkFingerprintRegistration(uid) {
     const userDoc = await db.collection('users').doc(uid).get();
     if (userDoc.exists && userDoc.data().fingerprintCredential) {
-        fpStatus.textContent = 'Fingerprint is already registered.';
+        fpStatus.textContent = 'Passkey is already registered.';
         fpStatus.className = 'status-message success';
         registerFpBtn.disabled = true;
     } else {
-        fpStatus.textContent = 'Please register your fingerprint.';
+        fpStatus.textContent = 'Please register your passkey.';
         fpStatus.className = 'status-message';
         registerFpBtn.disabled = false;
     }
@@ -248,97 +180,100 @@ async function checkFingerprintRegistration(uid) {
 markAttendanceBtn.addEventListener('click', async () => {
     const user = auth.currentUser;
     if (!user) return;
-
-    attendanceStatus.textContent = 'Please verify with your fingerprint...';
+    attendanceStatus.textContent = 'Please verify with your passkey...';
     attendanceStatus.className = 'status-message';
-
     try {
         const userDoc = await db.collection('users').doc(user.uid).get();
-        if (!userDoc.exists || !userDoc.data().fingerprintCredential) {
-            return alert('No fingerprint registered. Please register first.');
-        }
-
+        if (!userDoc.exists || !userDoc.data().fingerprintCredential) return alert('No passkey registered.');
         const credentialId = userDoc.data().fingerprintCredential.id;
-
-        const challengeBuffer = new Uint8Array(32).map(() => Math.floor(Math.random() * 256));
+        const challengeBuffer = crypto.getRandomValues(new Uint8Array(32));
         const challenge = bufferToBase64URL(challengeBuffer);
-
         const authenticationOptions = {
             challenge,
-            allowCredentials: [{
-                id: credentialId,
-                type: 'public-key',
-            }, ],
+            allowCredentials: [{ id: credentialId, type: 'public-key' }],
             userVerification: 'required',
         };
-
         await browser.startAuthentication(authenticationOptions);
-
-        attendanceStatus.textContent = 'Fingerprint verified! Checking location...';
+        attendanceStatus.textContent = 'Verification successful! Checking location...';
         attendanceStatus.className = 'status-message success';
-
-        navigator.geolocation.getCurrentPosition(positionSuccess, positionError);
-
+        // LOCATION FIX: Enable high accuracy mode
+        navigator.geolocation.getCurrentPosition(positionSuccess, positionError, { enableHighAccuracy: true });
     } catch (error) {
         console.error(error);
-        attendanceStatus.textContent = 'Fingerprint verification failed.';
+        attendanceStatus.textContent = 'Verification failed.';
         attendanceStatus.className = 'status-message error';
     }
 });
 
 async function positionSuccess(position) {
-    const userCoords = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
-    };
-
+    const userCoords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
     const companyLocDoc = await db.collection('company').doc('location').get();
     if (!companyLocDoc.exists) {
         attendanceStatus.textContent = 'Company location not set by admin.';
-        attendanceStatus.className = 'status-message error';
         return;
     }
     const companyCoords = companyLocDoc.data();
-
     const distance = haversineDistance(userCoords, companyCoords);
-
     if (distance <= ALLOWED_RADIUS_METERS) {
-        attendanceStatus.textContent = `You are ${Math.round(distance)}m away. Attendance marked!`;
-        attendanceStatus.className = 'status-message success';
-
+        attendanceStatus.textContent = `Success! Attendance marked.`;
         const user = auth.currentUser;
         await db.collection('attendance').add({
             userId: user.uid,
             email: user.email,
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            location: new firebase.firestore.GeoPoint(userCoords.latitude, userCoords.longitude)
         });
         markAttendanceBtn.disabled = true;
-        setTimeout(() => {
-            attendanceStatus.textContent = 'Your attendance for today is marked.';
-        }, 5000);
-
     } else {
-        attendanceStatus.textContent = `Failed: You are ${Math.round(distance)}m away from the office. You must be within ${ALLOWED_RADIUS_METERS}m.`;
+        attendanceStatus.textContent = `Failed: You are ${Math.round(distance)}m away. You must be within ${ALLOWED_RADIUS_METERS}m.`;
         attendanceStatus.className = 'status-message error';
     }
 }
 
-function positionError(error) {
-    attendanceStatus.textContent = `Error getting location: ${error.message}`;
-    attendanceStatus.className = 'status-message error';
-}
+function positionError(error) { attendanceStatus.textContent = `Error getting location: ${error.message}`; attendanceStatus.className = 'status-message error'; }
 
 function haversineDistance(coords1, coords2) {
-    function toRad(x) {
-        return x * Math.PI / 180;
-    }
+    function toRad(x) { return x * Math.PI / 180; }
     const R = 6371e3;
     const dLat = toRad(coords2.latitude - coords1.latitude);
     const dLon = toRad(coords2.longitude - coords1.longitude);
-    const lat1 = toRad(coords1.latitude);
-    const lat2 = toRad(coords2.latitude);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(coords1.latitude)) * Math.cos(toRad(coords2.latitude)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+//
+// ========================================
+//  NEW: STEP 8: REAL-TIME ATTENDANCE LIST
+// ========================================
+//
+function listenForAttendance() {
+    // Get the start of today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    db.collection('attendance')
+      .where('timestamp', '>=', today)
+      .orderBy('timestamp', 'desc')
+      .onSnapshot(snapshot => {
+          if (snapshot.empty) {
+              attendanceList.innerHTML = '<li>No one has marked attendance yet today.</li>';
+              return;
+          }
+          
+          attendanceList.innerHTML = ''; // Clear the list
+          snapshot.forEach(doc => {
+              const record = doc.data();
+              const timestamp = record.timestamp.toDate();
+              const formattedTime = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+              const listItem = document.createElement('li');
+              listItem.innerHTML = `
+                  <span class="employee-name">${record.email}</span>
+                  <span class="timestamp">${formattedTime}</span>
+              `;
+              attendanceList.appendChild(listItem);
+          });
+      }, error => {
+          console.error("Error listening for attendance:", error);
+          attendanceList.innerHTML = '<li>Error loading attendance data.</li>';
+      });
 }
