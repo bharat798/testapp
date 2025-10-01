@@ -3,63 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance System</title>
+    <title>Attendance App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="app-container">
+    <div class="app-container">
         <div id="auth-screen" class="screen active">
-            <h1>Employee Attendance</h1>
-            <div id="login-view">
-                <h2>Login</h2>
-                <input type="email" id="login-email" placeholder="Email">
-                <input type="password" id="login-password" placeholder="Password">
-                <button id="login-btn">Login</button>
-                <p>New user? <a href="#" id="show-signup">Sign Up</a></p>
-            </div>
-            <div id="signup-view" style="display: none;">
-                <h2>Sign Up</h2>
-                <input type="email" id="signup-email" placeholder="Email">
-                <input type="password" id="signup-password" placeholder="Password">
-                <button id="signup-btn">Sign Up</button>
-                <p>Already have an account? <a href="#" id="show-login">Log In</a></p>
+            <div class="app-card">
+                <h1 class="app-title"><i class="fas fa-fingerprint"></i> Attendance</h1>
+                <div id="login-view">
+                    <input type="email" id="login-email" placeholder="Email">
+                    <input type="password" id="login-password" placeholder="Password">
+                    <button id="login-btn"><i class="fas fa-sign-in-alt"></i> Login</button>
+                    <p class="form-toggle-link">New user? <a href="#" id="show-signup">Sign Up</a></p>
+                </div>
+                <div id="signup-view" style="display: none;">
+                    <input type="email" id="signup-email" placeholder="Email">
+                    <input type="password" id="signup-password" placeholder="Password">
+                    <button id="signup-btn"><i class="fas fa-user-plus"></i> Sign Up</button>
+                    <p class="form-toggle-link">Already have an account? <a href="#" id="show-login">Log In</a></p>
+                </div>
             </div>
         </div>
 
         <div id="admin-dashboard" class="screen">
-            <h2>Admin Dashboard</h2>
-            <p>Set the company's official location.</p>
-            <input type="text" id="company-lat" value="21.0261">
-            <input type="text" id="company-lon" value="72.8885">
-            <button id="save-location-btn">Save Location</button>
-            <button id="logout-btn-admin">Logout</button>
+            <div class="app-card">
+                <h1 class="app-title"><i class="fas fa-user-shield"></i> Admin Panel</h1>
+                <p>Set the company's official location.</p>
+                <input type="text" id="company-lat" placeholder="Latitude">
+                <input type="text" id="company-lon" placeholder="Longitude">
+                <button id="save-location-btn"><i class="fas fa-save"></i> Save Location</button>
+                <hr>
+                <button id="logout-btn-admin" class="btn-secondary"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
         </div>
 
         <div id="employee-dashboard" class="screen">
-            <h2>Employee Dashboard</h2>
-            <p>Welcome, <span id="employee-email"></span>!</p>
-            <div id="fingerprint-section">
-                <button id="register-fp-btn">Register Fingerprint</button>
-                <p id="fp-status" class="status-message"></p>
+            <div class="app-card">
+                <h1 class="app-title">Dashboard</h1>
+                <p class="welcome-message">Welcome, <strong id="employee-email"></strong>!</p>
+                <div id="fingerprint-section">
+                    <button id="register-fp-btn"><i class="fas fa-id-card-alt"></i> Register Passkey</button>
+                    <p id="fp-status" class="status-message"></p>
+                </div>
+                <hr>
+                <div id="attendance-section">
+                    <button id="mark-attendance-btn"><i class="fas fa-check-circle"></i> Mark My Attendance</button>
+                    <p id="attendance-status" class="status-message"></p>
+                </div>
+                <hr>
+                <button id="logout-btn-employee" class="btn-secondary"><i class="fas fa-sign-out-alt"></i> Logout</button>
             </div>
-            <hr>
-            <div id="attendance-section">
-                <h3>Mark Today's Attendance</h3>
-                <button id="mark-attendance-btn">Mark My Attendance</button>
-                <p id="attendance-status" class="status-message"></p>
+            
+            <div class="app-card" id="attendance-list-card">
+                <h2><i class="fas fa-list-check"></i> Today's Attendance</h2>
+                <ul id="attendance-list">
+                    </ul>
             </div>
-            <button id="logout-btn-employee">Logout</button>
         </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
-
     <script src="app.js"></script>
-
 </body>
 </html>
