@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="app-container">
+        <div id="auth-screen" class="screen active">
+            <h1>Employee Attendance</h1>
+            <div id="login-view">
+                <h2>Login</h2>
+                <input type="email" id="login-email" placeholder="Email">
+                <input type="password" id="login-password" placeholder="Password">
+                <button id="login-btn">Login</button>
+                <p>New user? <a href="#" id="show-signup">Sign Up</a></p>
+            </div>
+            <div id="signup-view" style="display: none;">
+                <h2>Sign Up</h2>
+                <input type="email" id="signup-email" placeholder="Email">
+                <input type="password" id="signup-password" placeholder="Password">
+                <button id="signup-btn">Sign Up</button>
+                <p>Already have an account? <a href="#" id="show-login">Log In</a></p>
+            </div>
+        </div>
+
+        <div id="admin-dashboard" class="screen">
+            <h2>Admin Dashboard</h2>
+            <p>Set the company's official location.</p>
+            <input type="text" id="company-lat" value="21.0261">
+            <input type="text" id="company-lon" value="72.8885">
+            <button id="save-location-btn">Save Location</button>
+            <button id="logout-btn-admin">Logout</button>
+        </div>
+
+        <div id="employee-dashboard" class="screen">
+            <h2>Employee Dashboard</h2>
+            <p>Welcome, <span id="employee-email"></span>!</p>
+            <div id="fingerprint-section">
+                <button id="register-fp-btn">Register Fingerprint</button>
+                <p id="fp-status" class="status-message"></p>
+            </div>
+            <hr>
+            <div id="attendance-section">
+                <h3>Mark Today's Attendance</h3>
+                <button id="mark-attendance-btn">Mark My Attendance</button>
+                <p id="attendance-status" class="status-message"></p>
+            </div>
+            <button id="logout-btn-employee">Logout</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+
+    <script src="app.js"></script>
+
+</body>
+</html>
